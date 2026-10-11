@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>מפת משחקים – מכבי ע. כפר יונה "צו פיוס"</title>
+
+  <!-- Leaflet (cdnjs - אמין במובייל) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <!-- גיבוי אם ה-CDN הראשי חסום -->
+  <script>
+    if (typeof L === "undefined") {
+      document.write('<scr' + 'ipt src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/scr' + 'ipt>');
+    }
+  </script>
+
+  <style>
+    :root {
+      --navy: #1b2a5b;
+      --navy-light: #2a3d78;
+      --accent: #f4c430;
+      --home: #16a34a;
+      --away: #dc2626;
+      --bg: #eef2f7;
+      --panel: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Rubik", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: linear-gradient(135deg, var(--navy), var(--navy-light));
+      color: #fff;
+      padding: 16px 24px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+      z-index: 500;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    header .title { display: flex; align-items: center; gap: 12px; }
+
+    header .badge {
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: var(--navy);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    header h1 { margin: 0; font-size: 20px; font-weight: 700; }
+    header p { margin: 2px 0 0; font-size: 13px; opacity: 0.8; }
+
+    .legend {
+      display: flex; gap: 18px; font-size: 13px; align-items: center;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 8px 14px; border-radius: 10px;
+    }
+    .legend .item { display: flex; align-items: center; gap: 6px; }
+    .legend .dot {
+      width: 14px; height: 14px; border-radius: 50%;
+      border: 2px solid #fff;
+    }
+    .dot.home { background: var(--home); }
+    .dot.away { background: var(--away); }
+    .dot.approx { background: #9ca3af; border-style: dashed; }
+
+    .main { flex: 1; display: flex; overflow: hidden; }
+
+    #sidebar {
+      width: 340px;
+      background: var(--panel);
+      border-inline-start: 1px solid #e5e7eb;
+      overflow-y: auto;
+      padding: 16px;
+      box-shadow: -2px 0 8px rgba(0, 0, 0, 0.04);
+    }
+
+    #sidebar h2 {
+      font-size: 15px; margin: 0 0 12px;
+      color: var(--navy); font-weight: 700;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    #sidebar h2 .count {
+      background: var(--navy); color: #fff;
+      font-size: 12px; padding: 2px 8px; border-radius: 10px;
+    }
+
+    .match-card {
+      border: 1px solid #e5e7eb;
+      border-inline-start: 4px solid var(--navy);
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      background: #fff;
+    }
+    .match-card:hover {
+      background: #f8fafc;
+      transform: translateX(-3px);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+    .match-card.home { border-inline-start-color: var(--home); }
+    .match-card.away { border-inline-start-color: var(--away); }
+
+    .match-card .date { font-weight: 700; font-size: 14px; }
+    .match-card .teams { font-size: 13px; color: var(--muted); margin-top: 3px; }
+    .match-card .tag {
+      display: inline-block; font-size: 11px; font-weight: 700;
+      padding: 1px 8px; border-radius: 8px; margin-top: 6px; color: #fff;
+    }
+    .match-card .tag.home { background: var(--home); }
+    .match-card .tag.away { background: var(--away); }
+
+    #map { flex: 1; }
+
+    .leaflet-popup-content-wrapper { border-radius: 10px; }
+    .leaflet-popup-content { margin: 12px 14px; direction: rtl; text-align: right; }
+    .popup-venue {
+      font-weight: 800; font-size: 15px; color: var(--navy);
+      border-bottom: 2px solid var(--accent); padding-bottom: 6px; margin-bottom: 8px;
+    }
+    .popup-precise { font-size: 12px; font-weight: 700; margin-bottom: 8px; padding: 4px 8px; border-radius: 6px; }
+    .popup-precise.ok { background: #e7f6ec; color: #15803d; }
+    .popup-precise.approx { background: #f3f4f6; color: #6b7280; }
+    .popup-field { font-size: 13px; font-weight: 700; color: var(--navy); margin-bottom: 2px; }
+    .popup-addr { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+    .popup-match { font-size: 13px; padding: 5px 0; border-bottom: 1px dashed #e5e7eb; }
+    .popup-match:last-child { border-bottom: none; }
+    .popup-match .pdate { font-weight: 700; }
+    .popup-match .pteams { color: var(--muted); font-size: 12px; }
+    .popup-match .ptag {
+      display: inline-block; font-size: 10px; font-weight: 700;
+      padding: 0 6px; border-radius: 6px; color: #fff; margin-inline-start: 4px;
+    }
+    .ptag.home { background: var(--home); }
+    .ptag.away { background: var(--away); }
+
+    .marker-label {
+      background: transparent; border: none; box-shadow: none;
+      font-weight: 700; color: var(--navy); font-size: 11px;
+      text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff;
+      white-space: nowrap;
+    }
+
+    .round-filter { display: flex; gap: 6px; }
+    .round-btn {
+      font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+      color: #fff; background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.35); border-radius: 8px;
+      padding: 6px 14px; transition: all 0.15s ease;
+    }
+    .round-btn:hover { background: rgba(255,255,255,0.25); }
+    .round-btn.active { background: var(--accent); color: var(--navy); border-color: var(--accent); }
+
+    .round-head {
+      background: var(--navy); color: #fff; font-weight: 800; font-size: 14px;
+      padding: 7px 12px; border-radius: 8px; margin: 14px 0 10px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .round-head:first-child { margin-top: 0; }
+
+    .map-fallback {
+      height: 100%; display: flex; flex-direction: column; gap: 10px;
+      align-items: center; justify-content: center; text-align: center;
+      padding: 24px; color: var(--navy); background: var(--bg);
+      font-size: 15px; font-weight: 600; line-height: 1.5;
+    }
+    .map-fallback > div:first-child { font-size: 18px; font-weight: 800; }
+
+    .mobile-tabs { display: none; }
+
+    @media (max-width: 760px) {
+      body { height: 100dvh; }
+      header { padding: 10px 14px; gap: 8px; }
+      header .badge { width: 38px; height: 38px; font-size: 16px; }
+      header h1 { font-size: 15px; line-height: 1.25; }
+      header p { font-size: 11px; }
+      .legend { gap: 10px; font-size: 11px; padding: 6px 10px; flex-wrap: wrap; }
+      .round-filter { width: 100%; }
+      .round-btn { flex: 1; padding: 10px 0; font-size: 14px; }
+
+      .main { flex-direction: column; min-height: 0; }
+      #sidebar, #map { width: 100%; flex: 1 1 auto; min-height: 0; }
+      #sidebar { display: none; border-inline-start: none; padding: 14px; }
+      #map { display: block; }
+      body.show-list #map { display: none; }
+      body.show-list #sidebar { display: block; }
+
+      .mobile-tabs {
+        display: flex; background: var(--navy); gap: 6px; padding: 6px;
+        border-top: 1px solid rgba(255, 255, 255, 0.15); flex-shrink: 0;
+      }
+      .mtab {
+        flex: 1; font-family: inherit; font-size: 15px; font-weight: 700;
+        padding: 12px 0; border-radius: 10px; cursor: pointer; border: none;
+        color: #fff; background: rgba(255, 255, 255, 0.12);
+      }
+      .mtab.active { background: var(--accent); color: var(--navy); }
+
+      .match-card { padding: 12px 14px; }
+      .match-card .date { font-size: 15px; }
+      .match-card .teams { font-size: 14px; }
+      .leaflet-popup-content { font-size: 14px; }
+    }
+  </style>
+
+</head>
+<body>
+  <header>
+    <div class="title">
+      <div class="badge">כ"י</div>
+      <div>
+        <h1>מפת המשחקים – מכבי ע. כפר יונה "צו פיוס"</h1>
+        <p>ליגת ילדים א' שרון 2026/27 &middot; לחצו על נקודה לפרטי המשחקים</p>
+      </div>
+    </div>
+    <div class="legend">
+      <div class="item"><span class="dot home"></span> משחק בית (כפר יונה)</div>
+      <div class="item"><span class="dot away"></span> משחק חוץ</div>
+      <div class="item"><span class="dot approx"></span> מיקום ברמת יישוב</div>
+    </div>
+    <div class="round-filter">
+      <button class="round-btn active" data-round="0">הכל</button>
+      <button class="round-btn" data-round="1">סיבוב א'</button>
+      <button class="round-btn" data-round="2">סיבוב ב'</button>
+    </div>
+  </header>
+
+  <div class="main">
+    <aside id="sidebar">
+      <h2>לוח המשחקים <span class="count" id="matchCount">0</span></h2>
+      <div id="matchList"></div>
+    </aside>
+    <div id="map"></div>
+  </div>
+
+  <nav class="mobile-tabs">
+    <button class="mtab active" data-view="map">🗺️ מפה</button>
+    <button class="mtab" data-view="list">📋 רשימת משחקים</button>
+  </nav>
+
+  <script>
+    // ---------------------------------------------------------------
+    // נתוני המשחקים — ליגת ילדים א' שרון 2026/27 (מקור: football.org.il, league_id=154).
+    // המגרש והכתובת נלקחו מ"רשימת המגרשים" הרשומה של כל מועדון באתר ההתאחדות,
+    // ועברו גיאוקוד (OpenStreetMap/Nominatim) לקואורדינטות.
+    // precise = true  -> מוקם לפי הכתובת הרשומה ברמת רחוב (מדויק).
+    //           false -> הכתובת הרשומה ידועה, אך לא אותר הרחוב במפה —
+    //                    מוקם ברמת יישוב/שכונה (ראו כתובת מלאה בחלונית).
+    // ---------------------------------------------------------------
+    const KFAR_YONA = 'מכבי ע. כפר יונה "צו פיוס"';
+    // מגרש הבית של כפר יונה
+    const KY = { venue: "כפר יונה", lat: 32.3114467, lng: 34.9328481, precise: true, field: "מגרש כפר יונה (רח' הגליל, סינתטי)", addr: "הגליל, כפר יונה" };
+
+    // המגרש הביתי הרשום של כל יריבה (football.org.il). משמש גם בסיבוב ב' כשהיריבה מארחת.
+    const FIELDS = {
+      'מ.כ. נוה יוסף "צו פיוס"':         { venue: "חיפה (אגרטק)", lat: 32.7916931, lng: 34.9644972, precise: true,  field: "אגרטק (אתוס 1 לשעבר)", addr: "קדושי יאסי 2, חיפה" },
+      'מ. עתלית "צו פיוס"':              { venue: "עתלית", lat: 32.6907120, lng: 34.9422744, precise: false, field: "מגרש עתלית", addr: "מלח הארץ, עתלית" },
+      'מ.ס. קרית ים "צו פיוס"':          { venue: "קריית ים", lat: 32.8551441, lng: 35.0761024, precise: true, field: "קריית ים (סינתטי)", addr: "פנחס לבון 1, קריית ים" },
+      'הפועל חיפה 1 שרון':               { venue: "קריית ים", lat: 32.8551441, lng: 35.0761024, precise: true, field: "קריית ים (סינתטי)", addr: "פנחס לבון 1, קריית ים" },
+      'מ.כ. נהלל יזרעאל':                { venue: "נהלל", lat: 32.6900601, lng: 35.1968485, precise: false, field: "מגרש נהלל", addr: "נהלל" },
+      'הפועל חדרה':                      { venue: "חדרה (גבעת אולגה)", lat: 32.4319713, lng: 34.8783284, precise: true, field: "חדרה רמדה", addr: "רחבעם זאבי 2, חדרה" },
+      'בית"ר טוברוק':                   { venue: "נתניה (טוברוק)", lat: 32.3146693, lng: 34.8491619, precise: true, field: "נתניה טוברוק", addr: "יודפת 2, נתניה" },
+      'הפועל חוף הכרמל / מ"מ "צו פיוס"': { venue: "קיבוץ החותרים", lat: 32.7514500, lng: 34.9570430, precise: false, field: "קיבוץ החותרים", addr: "החותרים" },
+      'מ.כ. קרית חיים "צו פיוס"':        { venue: "קריית חיים", lat: 32.8181708, lng: 35.0660660, precise: true, field: "קריית חיים – בית נגלר מערבי", addr: "אברהם דנינו 6, חיפה" },
+      'מכבי ת"א שלמה':                  { venue: "תל אביב (אוניברסיטה)", lat: 32.1176983, lng: 34.8043612, precise: true, field: 'אוניברסיטת ת"א', addr: "קלצ'קין 4, תל אביב" },
+      'מכבי עמק חפר "צו פיוס"':          { venue: "גבעת חיים איחוד", lat: 32.4002771, lng: 34.9330496, precise: false, field: "קיבוץ גבעת חיים", addr: "גבעת חיים (איחוד)" },
+      'הפועל עכו אסף':                  { venue: "עכו", lat: 32.9195639, lng: 35.0919043, precise: true, field: "עכו (הפועל עכו)", addr: "שלום הגליל 1, עכו" },
+      'מכבי הרצליה הדר':                { venue: "הרצליה", lat: 32.1673594, lng: 34.8237700, precise: true, field: "הרצליה רן 2 (ילדים)", addr: "יוסף נבו 6, הרצליה" },
+      'הפועל הוד השרון':                { venue: "הוד השרון", lat: 32.1443227, lng: 34.8774884, precise: true, field: "הוד השרון – גני צבי", addr: "המחתרות, הוד השרון" },
+      'מ.ס. קדימה צורן':                { venue: "קדימה-צורן", lat: 32.2712141, lng: 34.9197397, precise: true, field: "מגרש קדימה", addr: "הניצן 5, קדימה-צורן" },
+      'מ.ס. עמק חפר דרום':              { venue: "חדרה (בית אליעזר)", lat: 32.4729546, lng: 35.0235503, precise: true, field: "חדרה – בית אליעזר", addr: 'כ"ט בנובמבר, חדרה' },
+      'מכבי חיפה מיכאל':                { venue: "חיפה (קצף)", lat: 32.7943704, lng: 34.9673831, precise: true, field: "חיפה קצף (סינתטי)", addr: "צביה ויצחק, חיפה" },
+      'הפועל טירת כרמל':                { venue: "טירת כרמל", lat: 32.7625750, lng: 34.9707649, precise: true, field: "מגרש טירת כרמל", addr: "הרב משה מרדכי 7, טירת כרמל" },
+      'בית"ר חיפה "צו פיוס"':           { venue: "חיפה (אגרטק)", lat: 32.7916931, lng: 34.9644972, precise: true, field: "חיפה אגרטק", addr: "קדושי יאסי 2, חיפה" },
+      'מכבי פ"ת אייל טייבי צפון':        { venue: "פתח תקווה", lat: 32.1042, lng: 34.8648, precise: true, field: "מושבה צפוני חדש", addr: "דרך שלמה שמלצר 12, פתח תקווה" },
+      'הפי ת"א אלון שמלי צפון':          { venue: "תל אביב (ספורטק)", lat: 32.1053566, lng: 34.8110185, precise: true, field: 'ת"א ספורטק צפון (מערבי)', addr: "שדרות רוקח 40, תל אביב" }
+    };
+
+    // סיבוב א' — סדר המשחקים לפי לוח ההתאחדות [מארחת, אורחת]
+    const ROUND1 = [
+      ['מ.כ. נוה יוסף "צו פיוס"', KFAR_YONA],
+      [KFAR_YONA, 'מ. עתלית "צו פיוס"'],
+      ['מ.ס. קרית ים "צו פיוס"', KFAR_YONA],
+      [KFAR_YONA, 'הפועל חיפה 1 שרון'],
+      ['מ.כ. נהלל יזרעאל', KFAR_YONA],
+      [KFAR_YONA, 'הפועל חדרה'],
+      ['בית"ר טוברוק', KFAR_YONA],
+      [KFAR_YONA, 'הפועל חוף הכרמל / מ"מ "צו פיוס"'],
+      ['מ.כ. קרית חיים "צו פיוס"', KFAR_YONA],
+      [KFAR_YONA, 'מכבי ת"א שלמה'],
+      ['מכבי עמק חפר "צו פיוס"', KFAR_YONA],
+      [KFAR_YONA, 'הפועל עכו אסף'],
+      ['מכבי הרצליה הדר', KFAR_YONA],
+      [KFAR_YONA, 'הפועל הוד השרון'],
+      ['מ.ס. קדימה צורן', KFAR_YONA],
+      ['מ.ס. עמק חפר דרום', KFAR_YONA],
+      [KFAR_YONA, 'מכבי חיפה מיכאל'],
+      ['הפועל טירת כרמל', KFAR_YONA],
+      [KFAR_YONA, 'בית"ר חיפה "צו פיוס"'],
+      ['מכבי פ"ת אייל טייבי צפון', KFAR_YONA],
+      [KFAR_YONA, 'הפי ת"א אלון שמלי צפון']
+    ];
+
+    const venueOf = (team) => (team === KFAR_YONA ? KY : FIELDS[team]);
+
+    // בניית שני הסיבובים. בסיבוב ב' הבית והחוץ מתהפכים, והמשחק עובר למגרש היריבה.
+    const matches = [];
+    ROUND1.forEach(([h, a], i) => matches.push({ round: 1, order: i + 1, home: h, away: a, ...venueOf(h) }));
+    ROUND1.forEach(([h, a], i) => matches.push({ round: 2, order: i + 1, home: a, away: h, ...venueOf(a) }));
+
+    const isHome = (m) => m.home === KFAR_YONA;
+
+    // ---------------- Map (עמיד לכשל טעינה) ----------------
+    const list = document.getElementById("matchList");
+    let activeRound = 0; // 0 = שני הסיבובים
+    let map = null, markerLayer = null, mapReady = false, markerByVenue = {};
+
+    function initMap() {
+      if (typeof L === "undefined") return false;
+      try {
+        map = L.map("map", { zoomControl: true }).setView([32.3, 34.95], 9);
+        L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
+          attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, SRTM | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)',
+          subdomains: "abc",
+          maxZoom: 17
+        }).addTo(map);
+        markerLayer = L.layerGroup().addTo(map);
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function makeIcon(home, count, precise) {
+      const color = home
+        ? getComputedStyle(document.documentElement).getPropertyValue("--home")
+        : getComputedStyle(document.documentElement).getPropertyValue("--away");
+      const border = precise ? "2px solid #fff" : "2px dashed #fff";
+      const ring = precise
+        ? ""
+        : `<div style="position:absolute;top:-3px;left:-3px;width:36px;height:36px;
+             border:2px dotted ${color};border-radius:50%;opacity:.6;"></div>`;
+      return L.divIcon({
+        className: "",
+        html: `<div style="position:relative;width:30px;height:30px;">
+          ${ring}
+          <div style="width:26px;height:26px;border-radius:50% 50% 50% 0;
+            transform:rotate(-45deg);background:${color};border:${border};
+            box-shadow:0 2px 6px rgba(0,0,0,.35);margin:2px;"></div>
+          <div style="position:absolute;top:3px;left:0;width:30px;text-align:center;
+            color:#fff;font-weight:800;font-size:12px;">${count}</div>
+        </div>`,
+        iconSize: [30, 30],
+        iconAnchor: [15, 30],
+        popupAnchor: [0, -28]
+      });
+    }
+
+    const vKey = (m) => m.lat + "," + m.lng;
+    const roundName = (r) => (r === 1 ? "א'" : "ב'");
+
+    function buildPopup(v) {
+      const fieldLine = v.field ? `<div class="popup-field">⚽ ${v.field}</div>` : "";
+      const addrLine = v.addr ? `<div class="popup-addr">📍 ${v.addr}</div>` : "";
+      const precisionNote = v.precise
+        ? `<div class="popup-precise ok">מיקום מדויק – כתובת רשומה (ההתאחדות)</div>`
+        : `<div class="popup-precise approx">מיקום ברמת יישוב – ראו כתובת מלאה</div>`;
+      let html = `<div class="popup-venue">${v.venue}</div>${fieldLine}${addrLine}${precisionNote}`;
+      v.items
+        .slice()
+        .sort((a, b) => a.round - b.round || a.order - b.order)
+        .forEach((m) => {
+          const home = isHome(m);
+          html += `<div class="popup-match">
+              <span class="pdate">סיבוב ${roundName(m.round)} · משחק ${m.order}</span>
+              <span class="ptag ${home ? "home" : "away"}">${home ? "בית" : "חוץ"}</span>
+              <div class="pteams">${m.home} נגד ${m.away}</div>
+            </div>`;
+        });
+      return html;
+    }
+
+    function render() {
+      list.innerHTML = "";
+      const shown = matches.filter((m) => activeRound === 0 || m.round === activeRound);
+
+      // קיבוץ לפי מגרש
+      const venues = {};
+      shown.forEach((m) => {
+        const k = vKey(m);
+        if (!venues[k]) venues[k] = { venue: m.venue, lat: m.lat, lng: m.lng, precise: m.precise, field: m.field, addr: m.addr, homeGame: false, items: [] };
+        venues[k].items.push(m);
+        if (isHome(m)) venues[k].homeGame = true;
+      });
+
+      // סמנים — רק אם המפה נטענה
+      markerByVenue = {};
+      if (mapReady) {
+        markerLayer.clearLayers();
+        Object.entries(venues).forEach(([k, v]) => {
+          const marker = L.marker([v.lat, v.lng], { icon: makeIcon(v.homeGame, v.items.length, v.precise) });
+          marker.bindPopup(buildPopup(v), { maxWidth: 300 });
+          marker.bindTooltip(v.venue, { permanent: true, direction: "top", className: "marker-label", offset: [0, -30] });
+          marker.addTo(markerLayer);
+          markerByVenue[k] = marker;
+        });
+      }
+
+      // סרגל צד מחולק לסיבובים — תמיד (גם בלי מפה)
+      (activeRound === 0 ? [1, 2] : [activeRound]).forEach((r) => {
+        const head = document.createElement("div");
+        head.className = "round-head";
+        head.textContent = "סיבוב " + roundName(r);
+        list.appendChild(head);
+        shown
+          .filter((m) => m.round === r)
+          .sort((a, b) => a.order - b.order)
+          .forEach((m) => {
+            const home = isHome(m);
+            const card = document.createElement("div");
+            card.className = "match-card " + (home ? "home" : "away");
+            card.innerHTML = `
+              <div class="date">משחק ${m.order}</div>
+              <div class="teams">${m.home} <strong>נגד</strong> ${m.away}</div>
+              <span class="tag ${home ? "home" : "away"}">${home ? "בית" : "חוץ"} · ${m.field || m.venue}</span>`;
+            card.addEventListener("click", () => {
+              if (!mapReady) return;
+              const go = () => {
+                map.invalidateSize();
+                map.flyTo([m.lat, m.lng], 13, { duration: 0.8 });
+                const mk = markerByVenue[vKey(m)];
+                if (mk) mk.openPopup();
+              };
+              if (isMobile()) { setMobileView("map"); setTimeout(go, 150); }
+              else go();
+            });
+            list.appendChild(card);
+          });
+      });
+
+      document.getElementById("matchCount").textContent = shown.length;
+    }
+
+    document.querySelectorAll(".round-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".round-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        activeRound = Number(btn.dataset.round);
+        render();
+      });
+    });
+
+    // מעבר בין תצוגת מפה לרשימה בטלפון
+    const isMobile = () => window.matchMedia("(max-width: 760px)").matches;
+    function setMobileView(view) {
+      document.body.classList.toggle("show-list", view === "list");
+      document.querySelectorAll(".mtab").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
+      if (view === "map" && map) setTimeout(() => map.invalidateSize(), 60);
+    }
+    document.querySelectorAll(".mtab").forEach((btn) => {
+      btn.addEventListener("click", () => setMobileView(btn.dataset.view));
+    });
+
+    // אתחול המפה; אם נכשלת — הרשימה עדיין נטענת
+    mapReady = initMap();
+    if (!mapReady) {
+      const el = document.getElementById("map");
+      if (el) el.innerHTML = '<div class="map-fallback"><div>⚠️ לא ניתן לטעון את רכיב המפה</div><div>ייתכן שאין חיבור אינטרנט. עברו ל־📋 "רשימת משחקים" לצפייה בכל המשחקים, המגרשים והכתובות.</div></div>';
+      if (isMobile()) setMobileView("list");
+    }
+
+    render();
+
+    // מרכוז המפה על כל המגרשים
+    if (mapReady) {
+      try {
+        map.fitBounds(L.latLngBounds(matches.map((m) => [m.lat, m.lng])), { padding: [60, 60] });
+      } catch (e) {}
+    }
+  </script>
+</body>
+</html>
