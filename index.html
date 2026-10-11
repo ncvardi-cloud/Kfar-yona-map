@@ -2,18 +2,31 @@
 <html lang="he" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#1b2a5b" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="format-detection" content="telephone=no" />
   <title>מפת משחקים – מכבי ע. כפר יונה "צו פיוס"</title>
 
   <!-- Leaflet (cdnjs - אמין במובייל) -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-  <!-- גיבוי אם ה-CDN הראשי חסום -->
+  <!-- גיבוי אם ה-CDN הראשי חסום (בלי document.write, שנחסם בדפדפני מובייל) -->
   <script>
-    if (typeof L === "undefined") {
-      document.write('<scr' + 'ipt src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/scr' + 'ipt>');
-    }
+    window.loadLeafletFallback = function () {
+      if (window.__lfb) return;
+      window.__lfb = true;
+      var c = document.createElement("link");
+      c.rel = "stylesheet";
+      c.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+      document.head.appendChild(c);
+      var s = document.createElement("script");
+      s.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+      s.onload = s.onerror = function () { if (window.onLeafletReady) window.onLeafletReady(); };
+      document.head.appendChild(s);
+    };
   </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" onerror="loadLeafletFallback()"></script>
 
   <style>
     :root {
@@ -32,7 +45,10 @@
 
     body {
       margin: 0;
-      font-family: "Segoe UI", "Rubik", Arial, sans-serif;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Rubik", Arial, sans-serif;
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+      -webkit-tap-highlight-color: transparent;
       background: var(--bg);
       color: var(--text);
       height: 100vh;
@@ -87,8 +103,9 @@
     #sidebar {
       width: 340px;
       background: var(--panel);
-      border-inline-start: 1px solid #e5e7eb;
+      border-right: 1px solid #e5e7eb;
       overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
       padding: 16px;
       box-shadow: -2px 0 8px rgba(0, 0, 0, 0.04);
     }
@@ -105,7 +122,7 @@
 
     .match-card {
       border: 1px solid #e5e7eb;
-      border-inline-start: 4px solid var(--navy);
+      border-right: 4px solid var(--navy);
       border-radius: 8px;
       padding: 10px 12px;
       margin-bottom: 8px;
@@ -113,13 +130,17 @@
       transition: all 0.15s ease;
       background: #fff;
     }
-    .match-card:hover {
-      background: #f8fafc;
-      transform: translateX(-3px);
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    @media (hover: hover) {
+      .match-card:hover {
+        background: #f8fafc;
+        transform: translateX(-3px);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      }
+      .round-btn:hover { background: rgba(255,255,255,0.25); }
     }
-    .match-card.home { border-inline-start-color: var(--home); }
-    .match-card.away { border-inline-start-color: var(--away); }
+    .match-card:active { background: #f1f5f9; }
+    .match-card.home { border-right-color: var(--home); }
+    .match-card.away { border-right-color: var(--away); }
 
     .match-card .date { font-weight: 700; font-size: 14px; }
     .match-card .teams { font-size: 13px; color: var(--muted); margin-top: 3px; }
@@ -149,7 +170,7 @@
     .popup-match .pteams { color: var(--muted); font-size: 12px; }
     .popup-match .ptag {
       display: inline-block; font-size: 10px; font-weight: 700;
-      padding: 0 6px; border-radius: 6px; color: #fff; margin-inline-start: 4px;
+      padding: 0 6px; border-radius: 6px; color: #fff; margin-right: 4px;
     }
     .ptag.home { background: var(--home); }
     .ptag.away { background: var(--away); }
@@ -168,7 +189,6 @@
       border: 1px solid rgba(255,255,255,0.35); border-radius: 8px;
       padding: 6px 14px; transition: all 0.15s ease;
     }
-    .round-btn:hover { background: rgba(255,255,255,0.25); }
     .round-btn.active { background: var(--accent); color: var(--navy); border-color: var(--accent); }
 
     .round-head {
@@ -190,7 +210,12 @@
 
     @media (max-width: 760px) {
       body { height: 100dvh; }
-      header { padding: 10px 14px; gap: 8px; }
+      header {
+        padding: 10px 14px; gap: 8px;
+        padding-top: calc(10px + env(safe-area-inset-top));
+        padding-left: calc(14px + env(safe-area-inset-left));
+        padding-right: calc(14px + env(safe-area-inset-right));
+      }
       header .badge { width: 38px; height: 38px; font-size: 16px; }
       header h1 { font-size: 15px; line-height: 1.25; }
       header p { font-size: 11px; }
@@ -200,7 +225,7 @@
 
       .main { flex-direction: column; min-height: 0; }
       #sidebar, #map { width: 100%; flex: 1 1 auto; min-height: 0; }
-      #sidebar { display: none; border-inline-start: none; padding: 14px; }
+      #sidebar { display: none; border-right: none; padding: 14px; }
       #map { display: block; }
       body.show-list #map { display: none; }
       body.show-list #sidebar { display: block; }
@@ -208,6 +233,7 @@
       .mobile-tabs {
         display: flex; background: var(--navy); gap: 6px; padding: 6px;
         border-top: 1px solid rgba(255, 255, 255, 0.15); flex-shrink: 0;
+        padding-bottom: calc(6px + env(safe-area-inset-bottom));
       }
       .mtab {
         flex: 1; font-family: inherit; font-size: 15px; font-weight: 700;
@@ -241,7 +267,7 @@
     <div class="round-filter">
       <button class="round-btn active" data-round="0">הכל</button>
       <button class="round-btn" data-round="1">סיבוב א'</button>
-      <button class="round-btn" data-round="2">סיבוב ב'</button>
+      <button class="round-btn" data-round="2">סיבוב ב' (משוער)</button>
     </div>
   </header>
 
@@ -290,43 +316,51 @@
       'מ.ס. קדימה צורן':                { venue: "קדימה-צורן", lat: 32.2712141, lng: 34.9197397, precise: true, field: "מגרש קדימה", addr: "הניצן 5, קדימה-צורן" },
       'מ.ס. עמק חפר דרום':              { venue: "חדרה (בית אליעזר)", lat: 32.4729546, lng: 35.0235503, precise: true, field: "חדרה – בית אליעזר", addr: 'כ"ט בנובמבר, חדרה' },
       'מכבי חיפה מיכאל':                { venue: "חיפה (קצף)", lat: 32.7943704, lng: 34.9673831, precise: true, field: "חיפה קצף (סינתטי)", addr: "צביה ויצחק, חיפה" },
-      'הפועל טירת כרמל':                { venue: "טירת כרמל", lat: 32.7625750, lng: 34.9707649, precise: true, field: "מגרש טירת כרמל", addr: "הרב משה מרדכי 7, טירת כרמל" },
+      'הפועל טירת כרמל "צו פיוס"':       { venue: "טירת כרמל", lat: 32.7625750, lng: 34.9707649, precise: true, field: "מגרש טירת כרמל", addr: "הרב משה מרדכי 7, טירת כרמל" },
       'בית"ר חיפה "צו פיוס"':           { venue: "חיפה (אגרטק)", lat: 32.7916931, lng: 34.9644972, precise: true, field: "חיפה אגרטק", addr: "קדושי יאסי 2, חיפה" },
       'מכבי פ"ת אייל טייבי צפון':        { venue: "פתח תקווה", lat: 32.1042, lng: 34.8648, precise: true, field: "מושבה צפוני חדש", addr: "דרך שלמה שמלצר 12, פתח תקווה" },
-      'הפי ת"א אלון שמלי צפון':          { venue: "תל אביב (ספורטק)", lat: 32.1053566, lng: 34.8110185, precise: true, field: 'ת"א ספורטק צפון (מערבי)', addr: "שדרות רוקח 40, תל אביב" }
+      'הפ\' ת"א אלון שמלי צפון':          { venue: "תל אביב (ספורטק)", lat: 32.1053566, lng: 34.8110185, precise: true, field: 'ת"א ספורטק צפון (מערבי)', addr: "שדרות רוקח 40, תל אביב" },
+      // מספר בית לא אותר ב-OSM — מוקם ברמת רחוב
+      'הפועל ניר רמה"ש רום וילדר ז"ל':   { venue: "רמת השרון", lat: 32.1294540, lng: 34.8626377, precise: true, field: "רמת השרון סינטטי קטן", addr: "דרך דודו דותן 2, רמת השרון" },
+      'הפועל עליה כפ״ס':                 { venue: "כפר סבא (עליה)", lat: 32.1877910, lng: 34.9034220, precise: true, field: 'כפר סבא עליה כ"ס', addr: "טהון, כפר סבא" }
     };
 
-    // סיבוב א' — סדר המשחקים לפי לוח ההתאחדות [מארחת, אורחת]
+    // סיבוב א' — מחזורים 1–23 לפי לוח ההתאחדות (נשלף 11/10/2026) [מארחת, אורחת, תאריך]
     const ROUND1 = [
-      ['מ.כ. נוה יוסף "צו פיוס"', KFAR_YONA],
-      [KFAR_YONA, 'מ. עתלית "צו פיוס"'],
-      ['מ.ס. קרית ים "צו פיוס"', KFAR_YONA],
-      [KFAR_YONA, 'הפועל חיפה 1 שרון'],
-      ['מ.כ. נהלל יזרעאל', KFAR_YONA],
-      [KFAR_YONA, 'הפועל חדרה'],
-      ['בית"ר טוברוק', KFAR_YONA],
-      [KFAR_YONA, 'הפועל חוף הכרמל / מ"מ "צו פיוס"'],
-      ['מ.כ. קרית חיים "צו פיוס"', KFAR_YONA],
-      [KFAR_YONA, 'מכבי ת"א שלמה'],
-      ['מכבי עמק חפר "צו פיוס"', KFAR_YONA],
-      [KFAR_YONA, 'הפועל עכו אסף'],
-      ['מכבי הרצליה הדר', KFAR_YONA],
-      [KFAR_YONA, 'הפועל הוד השרון'],
-      ['מ.ס. קדימה צורן', KFAR_YONA],
-      ['מ.ס. עמק חפר דרום', KFAR_YONA],
-      [KFAR_YONA, 'מכבי חיפה מיכאל'],
-      ['הפועל טירת כרמל', KFAR_YONA],
-      [KFAR_YONA, 'בית"ר חיפה "צו פיוס"'],
-      ['מכבי פ"ת אייל טייבי צפון', KFAR_YONA],
-      [KFAR_YONA, 'הפי ת"א אלון שמלי צפון']
+      ['מ.כ. נוה יוסף "צו פיוס"', KFAR_YONA, '17/10/2026'],
+      [KFAR_YONA, 'מ. עתלית "צו פיוס"', '28/10/2026'],
+      ['מ.ס. קרית ים "צו פיוס"', KFAR_YONA, '31/10/2026'],
+      [KFAR_YONA, 'הפועל חיפה 1 שרון', '14/11/2026'],
+      ['מ.כ. נהלל יזרעאל', KFAR_YONA, '28/11/2026'],
+      [KFAR_YONA, 'הפועל חדרה', '05/12/2026'],
+      ['בית"ר טוברוק', KFAR_YONA, '19/12/2026'],
+      [KFAR_YONA, 'הפועל חוף הכרמל / מ"מ "צו פיוס"', '26/12/2026'],
+      ['מ.כ. קרית חיים "צו פיוס"', KFAR_YONA, '09/01/2027'],
+      [KFAR_YONA, 'מכבי ת"א שלמה', '16/01/2027'],
+      ['מכבי עמק חפר "צו פיוס"', KFAR_YONA, '23/01/2027'],
+      [KFAR_YONA, 'הפועל עכו אסף', '30/01/2027'],
+      ['מכבי הרצליה הדר', KFAR_YONA, '06/02/2027'],
+      [KFAR_YONA, 'הפועל הוד השרון', '13/02/2027'],
+      ['מ.ס. קדימה צורן', KFAR_YONA, '20/02/2027'],
+      ['מ.ס. עמק חפר דרום', KFAR_YONA, '27/02/2027'],
+      [KFAR_YONA, 'מכבי חיפה מיכאל', '06/03/2027'],
+      ['הפועל טירת כרמל "צו פיוס"', KFAR_YONA, '13/03/2027'],
+      [KFAR_YONA, 'בית"ר חיפה "צו פיוס"', '20/03/2027'],
+      ['מכבי פ"ת אייל טייבי צפון', KFAR_YONA, '27/03/2027'],
+      [KFAR_YONA, 'הפ\' ת"א אלון שמלי צפון', '03/04/2027'],
+      ['הפועל ניר רמה"ש רום וילדר ז"ל', KFAR_YONA, '10/04/2027'],
+      [KFAR_YONA, 'הפועל עליה כפ״ס', '17/04/2027']
     ];
 
     const venueOf = (team) => (team === KFAR_YONA ? KY : FIELDS[team]);
 
     // בניית שני הסיבובים. בסיבוב ב' הבית והחוץ מתהפכים, והמשחק עובר למגרש היריבה.
+    // num = מספר רץ רציף 1..46 (סיבוב א' 1–23, סיבוב ב' 24–46).
+    // סיבוב ב' טרם פורסם בהתאחדות — משוער (היפוך בית/חוץ), ללא תאריכים.
     const matches = [];
-    ROUND1.forEach(([h, a], i) => matches.push({ round: 1, order: i + 1, home: h, away: a, ...venueOf(h) }));
-    ROUND1.forEach(([h, a], i) => matches.push({ round: 2, order: i + 1, home: a, away: h, ...venueOf(a) }));
+    const RN = ROUND1.length;
+    ROUND1.forEach(([h, a, d], i) => matches.push({ round: 1, order: i + 1, num: i + 1, date: d, home: h, away: a, ...venueOf(h) }));
+    ROUND1.forEach(([h, a], i) => matches.push({ round: 2, order: i + 1, num: RN + i + 1, date: "", home: a, away: h, ...venueOf(a) }));
 
     const isHome = (m) => m.home === KFAR_YONA;
 
@@ -351,7 +385,7 @@
       }
     }
 
-    function makeIcon(home, count, precise) {
+    function makeIcon(home, label, precise) {
       const color = home
         ? getComputedStyle(document.documentElement).getPropertyValue("--home")
         : getComputedStyle(document.documentElement).getPropertyValue("--away");
@@ -360,6 +394,8 @@
         ? ""
         : `<div style="position:absolute;top:-3px;left:-3px;width:36px;height:36px;
              border:2px dotted ${color};border-radius:50%;opacity:.6;"></div>`;
+      const txt = String(label);
+      const fs = txt.length <= 2 ? 12 : txt.length <= 4 ? 9 : 7;
       return L.divIcon({
         className: "",
         html: `<div style="position:relative;width:30px;height:30px;">
@@ -367,8 +403,9 @@
           <div style="width:26px;height:26px;border-radius:50% 50% 50% 0;
             transform:rotate(-45deg);background:${color};border:${border};
             box-shadow:0 2px 6px rgba(0,0,0,.35);margin:2px;"></div>
-          <div style="position:absolute;top:3px;left:0;width:30px;text-align:center;
-            color:#fff;font-weight:800;font-size:12px;">${count}</div>
+          <div style="position:absolute;top:0;left:0;width:30px;height:26px;
+            display:flex;align-items:center;justify-content:center;
+            color:#fff;font-weight:800;font-size:${fs}px;">${label}</div>
         </div>`,
         iconSize: [30, 30],
         iconAnchor: [15, 30],
@@ -377,7 +414,8 @@
     }
 
     const vKey = (m) => m.lat + "," + m.lng;
-    const roundName = (r) => (r === 1 ? "א'" : "ב'");
+    const roundName = (r) => (r === 1 ? "א'" : "ב' (משוער – טרם פורסם)");
+    const dateTxt = (m) => (m.date ? " · " + m.date : "");
 
     function buildPopup(v) {
       const fieldLine = v.field ? `<div class="popup-field">⚽ ${v.field}</div>` : "";
@@ -392,7 +430,7 @@
         .forEach((m) => {
           const home = isHome(m);
           html += `<div class="popup-match">
-              <span class="pdate">סיבוב ${roundName(m.round)} · משחק ${m.order}</span>
+              <span class="pdate">משחק ${m.num}${dateTxt(m)} · סיבוב ${roundName(m.round)}</span>
               <span class="ptag ${home ? "home" : "away"}">${home ? "בית" : "חוץ"}</span>
               <div class="pteams">${m.home} נגד ${m.away}</div>
             </div>`;
@@ -418,9 +456,11 @@
       if (mapReady) {
         markerLayer.clearLayers();
         Object.entries(venues).forEach(([k, v]) => {
-          const marker = L.marker([v.lat, v.lng], { icon: makeIcon(v.homeGame, v.items.length, v.precise) });
-          marker.bindPopup(buildPopup(v), { maxWidth: 300 });
-          marker.bindTooltip(v.venue, { permanent: true, direction: "top", className: "marker-label", offset: [0, -30] });
+          const nums = v.items.map((it) => it.num).sort((a, b) => a - b);
+          // כפר יונה (בית) — בלי מספר; שאר המגרשים — מספרי המשחקים
+          const badge = v.homeGame ? "" : nums.join(",");
+          const marker = L.marker([v.lat, v.lng], { icon: makeIcon(v.homeGame, badge, v.precise) });
+          marker.bindPopup(buildPopup(v), { maxWidth: Math.min(300, window.innerWidth - 60), autoPanPadding: [20, 20] });
           marker.addTo(markerLayer);
           markerByVenue[k] = marker;
         });
@@ -440,7 +480,7 @@
             const card = document.createElement("div");
             card.className = "match-card " + (home ? "home" : "away");
             card.innerHTML = `
-              <div class="date">משחק ${m.order}</div>
+              <div class="date">משחק ${m.num}${dateTxt(m)}</div>
               <div class="teams">${m.home} <strong>נגד</strong> ${m.away}</div>
               <span class="tag ${home ? "home" : "away"}">${home ? "בית" : "חוץ"} · ${m.field || m.venue}</span>`;
             card.addEventListener("click", () => {
@@ -481,22 +521,29 @@
       btn.addEventListener("click", () => setMobileView(btn.dataset.view));
     });
 
-    // אתחול המפה; אם נכשלת — הרשימה עדיין נטענת
-    mapReady = initMap();
-    if (!mapReady) {
-      const el = document.getElementById("map");
-      if (el) el.innerHTML = '<div class="map-fallback"><div>⚠️ לא ניתן לטעון את רכיב המפה</div><div>ייתכן שאין חיבור אינטרנט. עברו ל־📋 "רשימת משחקים" לצפייה בכל המשחקים, המגרשים והכתובות.</div></div>';
-      if (isMobile()) setMobileView("list");
-    }
-
+    // הרשימה נטענת מיד; המפה — כשספריית Leaflet זמינה (כולל מה-CDN הגיבוי)
     render();
 
-    // מרכוז המפה על כל המגרשים
-    if (mapReady) {
+    function startMap() {
+      mapReady = initMap();
+      if (!mapReady) {
+        const el = document.getElementById("map");
+        if (el) el.innerHTML = '<div class="map-fallback"><div>⚠️ לא ניתן לטעון את רכיב המפה</div><div>ייתכן שאין חיבור אינטרנט. עברו ל־📋 "רשימת משחקים" לצפייה בכל המשחקים, המגרשים והכתובות.</div></div>';
+        if (isMobile()) setMobileView("list");
+        return;
+      }
+      render();
+      const pad = isMobile() ? [30, 30] : [60, 60];
       try {
-        map.fitBounds(L.latLngBounds(matches.map((m) => [m.lat, m.lng])), { padding: [60, 60] });
+        map.fitBounds(L.latLngBounds(matches.map((m) => [m.lat, m.lng])), { padding: pad });
       } catch (e) {}
+      const refit = () => setTimeout(() => map.invalidateSize(), 200);
+      window.addEventListener("resize", refit);
+      window.addEventListener("orientationchange", refit);
     }
+
+    if (typeof L !== "undefined" || !window.__lfb) startMap();
+    else window.onLeafletReady = startMap;
   </script>
 </body>
 </html>
